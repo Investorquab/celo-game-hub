@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    background-color: #07080c;
+    color: #e9eaee;
+  }
+
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(140, 92, 245, 0.08), transparent 40%),
+      radial-gradient(circle at 85% 10%, rgba(53, 208, 127, 0.07), transparent 45%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .glass-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(14px);
+    border-radius: 20px;
+  }
+
+  .glass-card-hover {
+    transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+  }
+
+  .glass-card-hover:hover {
+    border-color: rgba(255, 255, 255, 0.16);
+    transform: translateY(-2px);
+  }
+
+  .text-gradient-green {
+    background: linear-gradient(90deg, #35d07f, #4b8bff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .btn-primary {
+    background: linear-gradient(90deg, #35d07f, #2bb56b);
+    color: #06120c;
+    font-weight: 600;
+    border-radius: 14px;
+    padding: 0.65rem 1.4rem;
+    transition: box-shadow 200ms ease, transform 150ms ease;
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 0 28px -4px rgba(53, 208, 127, 0.55);
+    transform: translateY(-1px);
+  }
+
+  .pill {
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 0.2rem 0.65rem;
+  }
+}
