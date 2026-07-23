@@ -1,1 +1,0 @@
-{"root":["./src/index.ts","./src/config/abis.ts","./src/config/env.ts","./src/lib/matchMessage.ts","./src/relayer/relayerService.ts","./src/routes/auth.ts","./src/routes/leaderboard.ts","./src/routes/matches.ts","./src/services/db.ts","./src/tests/matchMessage.test.ts"],"version":"5.9.3"}
