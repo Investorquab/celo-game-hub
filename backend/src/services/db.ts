@@ -30,4 +30,16 @@ db.exec(`
     count INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (player_address, day)
   );
+
+  -- Tracks progress for scripts/syncOnChainMatches.ts, so re-running it
+  -- only processes blocks it hasn't seen yet.
+  CREATE TABLE IF NOT EXISTS sync_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+
+  -- Lets the on-chain sync script safely re-run without double-counting a
+  -- match it already processed. NULL tx_hash (queued-but-not-yet-confirmed
+  -- rows from the live API) are still allowed to repeat.
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_matches_tx_hash ON matches(tx_hash) WHERE tx_hash IS NOT NULL;
 `);

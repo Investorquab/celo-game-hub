@@ -69,14 +69,24 @@ you treat it as a finished product:
   instead of living only in memory. `LeaderboardCard.tsx` displays the
   top 10 players by XP on the home screen, live from
   `GET /api/leaderboard`.
-- ⚠️ Not yet done: an on-chain indexer that calls
-  `Leaderboard.updateRanking` after each match (the on-chain `Leaderboard`
-  contract itself is currently unused — all live leaderboard/profile data
-  comes from the backend's SQLite cache, which is accurate but is a
-  second source of truth alongside the chain, not derived from it). Also
-  still missing: a JWT/session layer after sign-in (every state-changing
-  call re-proves identity via its own signed message, which is safe but
-  chattier than a session would be).
+- ✅ **On-chain sync script** (`backend/src/scripts/syncOnChainMatches.ts`,
+  `npm run sync`): reads `MatchRecorded` events directly from the deployed
+  `GameResults` contract and backfills the SQLite cache. This matters
+  because anything that calls `submitMatch` directly on-chain — the QA
+  simulator, in particular — bypasses `/api/matches` entirely, so the
+  cache would never otherwise learn about those matches. Idempotent
+  (tracks last-synced block in a `sync_state` table, and a unique index
+  on `matches.tx_hash` means a re-read never double-counts); safe to run
+  on a schedule (cron, or a simple pm2 sleep-loop process) to keep the
+  live leaderboard current with any on-chain activity from outside the
+  normal API.
+- ⚠️ Not yet done: the on-chain `Leaderboard` contract itself is unused —
+  all live leaderboard/profile data comes from the backend's SQLite
+  cache (kept in sync with the chain by the script above), not derived
+  on-chain via `Leaderboard.updateRanking`. Also still missing: a
+  JWT/session layer after sign-in (every state-changing call re-proves
+  identity via its own signed message, which is safe but chattier than a
+  session would be).
 - ⚠️ Contracts are functional and tested but **not externally audited**.
   Treat them as a solid starting point, not a guarantee of security for
   high-value usage.

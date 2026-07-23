@@ -15,4 +15,3 @@ backend/arcade.db
 # misc
 .DS_Store
 *.log
-*.tsbuildinfo

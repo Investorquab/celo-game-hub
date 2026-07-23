@@ -6,7 +6,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -b",
     "start": "node dist/index.js",
-    "test": "npm run build && node --test dist/tests/*.test.js"
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "sync": "tsx src/scripts/syncOnChainMatches.ts"
   },
   "dependencies": {
     "express": "^4.19.2",
