@@ -65,13 +65,13 @@ export default function App() {
             </motion.section>
 
             <section className="mb-8">
-              <h2 className="mb-4 font-display text-xl">Leaderboard</h2>
-              <LeaderboardCard />
+              <h2 className="mb-4 font-display text-xl">Games</h2>
+              <GameGrid onPlay={setActiveGame} />
             </section>
 
             <section>
-              <h2 className="mb-4 font-display text-xl">Games</h2>
-              <GameGrid onPlay={setActiveGame} />
+              <h2 className="mb-4 font-display text-xl">Leaderboard</h2>
+              <LeaderboardCard />
             </section>
           </>
         )}
