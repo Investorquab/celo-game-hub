@@ -11,6 +11,7 @@ const schema = z.object({
   RELAYER_PRIVATE_KEY: z.string().min(64, "must be a 0x-prefixed private key"),
   GAME_RESULTS_CONTRACT: z.string().startsWith("0x"),
   PLAYER_REGISTRY_CONTRACT: z.string().startsWith("0x"),
+  LEADERBOARD_CONTRACT: z.string().startsWith("0x"),
   // Gas sponsorship guardrails
   MAX_SPONSORED_TX_PER_PLAYER_PER_DAY: z.string().default("20"),
   MAX_GAS_LIMIT_WEI: z.string().default("500000"),

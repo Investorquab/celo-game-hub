@@ -2,14 +2,15 @@
  * Reads MatchRecorded events directly from the deployed GameResults
  * contract and backfills the backend's SQLite cache (players + matches
  * tables) — the same cache /api/leaderboard and /api/players/:address
- * read from.
+ * read from. Also keeps the on-chain Leaderboard contract's ranking
+ * current for any player whose XP changed during this run.
  *
  * Why this is needed: anything that calls GameResults.submitMatch
  * directly on-chain (the QA simulator, in particular) bypasses the
  * backend's own /api/matches endpoint entirely, so the backend's cache
- * never learns about those matches on its own. This script closes that
- * gap by reading the source of truth (the chain itself) and reconciling
- * the cache to match it.
+ * — and the on-chain Leaderboard ranking — never learn about those
+ * matches on their own. This script closes that gap by reading the
+ * source of truth (the chain itself) and reconciling both to match it.
  *
  * Safe to re-run: tracks the last synced block in the `sync_state` table,
  * and a unique index on matches.tx_hash means even a duplicate event
@@ -17,6 +18,14 @@
  *
  * Usage:
  *   npx tsx src/scripts/syncOnChainMatches.ts
+ *   npx tsx src/scripts/syncOnChainMatches.ts --backfill-leaderboard
+ *
+ * The --backfill-leaderboard flag additionally calls updateRanking for
+ * EVERY player already in the cache, not just ones with a new match this
+ * run — use this once to catch up players whose matches were synced
+ * before Leaderboard wiring existed. Normal runs only update ranking for
+ * players who actually got a new match this run, which is enough to stay
+ * current going forward.
  *
  * Run this on a schedule (cron, or a pm2 process with a sleep loop) if
  * you want the live leaderboard to stay reasonably current with on-chain
@@ -27,16 +36,21 @@ import { createPublicClient, http, keccak256, toHex } from "viem";
 import { celo, celoSepolia } from "viem/chains";
 import { db } from "../services/db.js";
 import { xpForResult, levelForXp } from "../lib/xp.js";
+import { leaderboardAbi } from "../config/abis.js";
+import { walletClient } from "../relayer/relayerService.js";
 
 const CELO_CHAIN = process.env.CELO_CHAIN === "mainnet" ? celo : celoSepolia;
 const CELO_RPC_URL = process.env.CELO_RPC_URL;
 const GAME_RESULTS_CONTRACT = process.env.GAME_RESULTS_CONTRACT as `0x${string}` | undefined;
+const LEADERBOARD_CONTRACT = process.env.LEADERBOARD_CONTRACT as `0x${string}` | undefined;
 // Block the contract was deployed in — no events can exist before this,
 // so it's a safe default starting point for a first-ever sync.
 const SYNC_START_BLOCK = BigInt(process.env.SYNC_START_BLOCK ?? "72845334");
 // Public RPC providers commonly cap how many blocks one getLogs call can
 // span — fetch in chunks so this works regardless of that limit.
 const BLOCK_CHUNK_SIZE = 5000n;
+
+const BACKFILL_LEADERBOARD = process.argv.includes("--backfill-leaderboard");
 
 const RESULT_NAMES = ["win", "loss", "draw"] as const;
 const KNOWN_GAME_IDS: Record<string, string> = {
@@ -111,10 +125,28 @@ function upsertMatch(params: {
   return true;
 }
 
+async function updateOnChainRanking(address: string): Promise<void> {
+  if (!LEADERBOARD_CONTRACT) return;
+  try {
+    await walletClient.writeContract({
+      address: LEADERBOARD_CONTRACT,
+      abi: leaderboardAbi,
+      functionName: "updateRanking",
+      args: [address as `0x${string}`],
+    });
+    console.log(`  Leaderboard updated for ${address}`);
+  } catch (err) {
+    console.error(`  Leaderboard update FAILED for ${address}:`, err);
+  }
+}
+
 async function main() {
   if (!CELO_RPC_URL || !GAME_RESULTS_CONTRACT) {
     console.error("ERROR: CELO_RPC_URL and GAME_RESULTS_CONTRACT must be set in .env");
     process.exit(1);
+  }
+  if (!LEADERBOARD_CONTRACT) {
+    console.warn("WARNING: LEADERBOARD_CONTRACT not set — match cache will sync, but the on-chain Leaderboard ranking will NOT be updated.");
   }
 
   const client = createPublicClient({ chain: CELO_CHAIN, transport: http(CELO_RPC_URL) });
@@ -122,53 +154,69 @@ async function main() {
   const latestBlock = await client.getBlockNumber();
   let fromBlock = getLastSyncedBlock() + 1n;
 
-  if (fromBlock > latestBlock) {
-    console.log(`Already synced through block ${latestBlock}. Nothing new.`);
-    return;
-  }
-
-  console.log(`Syncing MatchRecorded events from block ${fromBlock} to ${latestBlock}...`);
-
+  const touchedAddresses = new Set<string>();
   let totalNew = 0;
   let totalSeen = 0;
 
-  while (fromBlock <= latestBlock) {
-    const toBlock = fromBlock + BLOCK_CHUNK_SIZE > latestBlock ? latestBlock : fromBlock + BLOCK_CHUNK_SIZE;
+  if (fromBlock > latestBlock) {
+    console.log(`Already synced through block ${latestBlock}. Nothing new from events.`);
+  } else {
+    console.log(`Syncing MatchRecorded events from block ${fromBlock} to ${latestBlock}...`);
 
-    const logs = await client.getLogs({
-      address: GAME_RESULTS_CONTRACT,
-      event: matchRecordedEvent,
-      fromBlock,
-      toBlock,
-    });
+    while (fromBlock <= latestBlock) {
+      const toBlock = fromBlock + BLOCK_CHUNK_SIZE > latestBlock ? latestBlock : fromBlock + BLOCK_CHUNK_SIZE;
 
-    for (const log of logs) {
-      totalSeen++;
-      const { player, gameId, result } = log.args as {
-        player: `0x${string}`;
-        gameId: `0x${string}`;
-        result: number;
-      };
-
-      const block = await client.getBlock({ blockNumber: log.blockNumber! });
-      const gameName = KNOWN_GAME_IDS[gameId] ?? "unknown";
-      const resultName = RESULT_NAMES[result] ?? "draw";
-
-      const wasNew = upsertMatch({
-        playerAddress: player,
-        gameId: gameName,
-        result: resultName,
-        txHash: log.transactionHash!,
-        blockTimestamp: Number(block.timestamp) * 1000,
+      const logs = await client.getLogs({
+        address: GAME_RESULTS_CONTRACT,
+        event: matchRecordedEvent,
+        fromBlock,
+        toBlock,
       });
-      if (wasNew) totalNew++;
+
+      for (const log of logs) {
+        totalSeen++;
+        const { player, gameId, result } = log.args as {
+          player: `0x${string}`;
+          gameId: `0x${string}`;
+          result: number;
+        };
+
+        const block = await client.getBlock({ blockNumber: log.blockNumber! });
+        const gameName = KNOWN_GAME_IDS[gameId] ?? "unknown";
+        const resultName = RESULT_NAMES[result] ?? "draw";
+
+        const wasNew = upsertMatch({
+          playerAddress: player,
+          gameId: gameName,
+          result: resultName,
+          txHash: log.transactionHash!,
+          blockTimestamp: Number(block.timestamp) * 1000,
+        });
+        if (wasNew) {
+          totalNew++;
+          touchedAddresses.add(player.toLowerCase());
+        }
+      }
+
+      setLastSyncedBlock(toBlock);
+      fromBlock = toBlock + 1n;
     }
 
-    setLastSyncedBlock(toBlock);
-    fromBlock = toBlock + 1n;
+    console.log(`Done. Saw ${totalSeen} event(s), added ${totalNew} new match(es) to the cache.`);
   }
 
-  console.log(`Done. Saw ${totalSeen} event(s), added ${totalNew} new match(es) to the cache.`);
+  if (BACKFILL_LEADERBOARD) {
+    const allPlayers = db.prepare(`SELECT address FROM players`).all() as { address: string }[];
+    console.log(`--backfill-leaderboard: updating on-chain ranking for all ${allPlayers.length} known player(s)...`);
+    for (const p of allPlayers) {
+      await updateOnChainRanking(p.address);
+    }
+  } else if (touchedAddresses.size > 0) {
+    console.log(`Updating on-chain Leaderboard ranking for ${touchedAddresses.size} player(s) with new matches this run...`);
+    for (const address of touchedAddresses) {
+      await updateOnChainRanking(address);
+    }
+  }
 }
 
 main().catch((err) => {

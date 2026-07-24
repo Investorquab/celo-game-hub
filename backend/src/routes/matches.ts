@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { keccak256, toHex, verifyMessage } from "viem";
 import { db } from "../services/db.js";
-import { gameResultsAbi } from "../config/abis.js";
+import { gameResultsAbi, leaderboardAbi } from "../config/abis.js";
 import { env } from "../config/env.js";
 import {
   buildMatchMessage,
@@ -127,6 +127,22 @@ matchesRouter.post("/", async (req, res) => {
        SET xp = ?, level = ?, wins = wins + ?, losses = losses + ?, draws = draws + ?
        WHERE address = ?`
     ).run(newXp, levelForXp(newXp), winInc, lossInc, drawInc, playerAddress.toLowerCase());
+
+    // Best-effort: keep the on-chain Leaderboard contract's ranking current
+    // too. This is deliberately a separate transaction from submitMatch
+    // (not atomic with it) — if it fails, the match itself already
+    // succeeded and shouldn't be reported as an error to the player. The
+    // sync script's backfill step catches anything missed here.
+    try {
+      await walletClient.writeContract({
+        address: env.LEADERBOARD_CONTRACT as `0x${string}`,
+        abi: leaderboardAbi,
+        functionName: "updateRanking",
+        args: [playerAddress as `0x${string}`],
+      });
+    } catch (leaderboardErr) {
+      console.error("Leaderboard.updateRanking failed (match itself still succeeded):", leaderboardErr);
+    }
 
     res.json({ txHash, status: "confirmed" });
   } catch (err) {

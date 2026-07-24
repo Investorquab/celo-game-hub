@@ -11,3 +11,13 @@ export const gameResultsAbi = [
     stateMutability: "nonpayable",
   },
 ] as const;
+
+export const leaderboardAbi = [
+  {
+    type: "function",
+    name: "updateRanking",
+    inputs: [{ name: "player", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+] as const;
