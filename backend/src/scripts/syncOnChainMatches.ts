@@ -127,9 +127,11 @@ function upsertMatch(params: {
 
 async function updateOnChainRanking(
   address: string,
-  publicClient: ReturnType<typeof createPublicClient>
+  publicClient: ReturnType<typeof createPublicClient>,
+  attempt = 1
 ): Promise<void> {
   if (!LEADERBOARD_CONTRACT) return;
+  const maxAttempts = 3;
   try {
     const txHash = await walletClient.writeContract({
       address: LEADERBOARD_CONTRACT,
@@ -137,17 +139,26 @@ async function updateOnChainRanking(
       functionName: "updateRanking",
       args: [address as `0x${string}`],
     });
-    // Wait for the receipt before returning — this is what actually
-    // fixes the nonce race: without it, the next call in the loop can
-    // ask the chain for a nonce before this transaction has been mined,
-    // getting the same nonce and colliding with it (exactly the
-    // "nonce too low" / "replacement transaction underpriced" errors
-    // from the first attempt at this backfill). One-time/periodic batch
-    // job, so trading a bit of speed for correctness is the right call.
+    // Wait for the receipt before returning — this fixes nonce races
+    // WITHIN this script's own loop (each call waits for the previous
+    // one to actually mine before the next asks for a nonce).
     await publicClient.waitForTransactionReceipt({ hash: txHash });
     console.log(`  Leaderboard updated for ${address}`);
   } catch (err) {
-    console.error(`  Leaderboard update FAILED for ${address}:`, err);
+    // This does NOT protect against a race with a completely separate
+    // process — the live backend server calling updateRanking for a real
+    // match at the same moment this script runs. Both ask the chain for
+    // a nonce independently and can collide. Retrying after a short
+    // delay lets that other transaction finish first, so the retry's
+    // freshly-fetched nonce is correct.
+    const message = err instanceof Error ? err.message : String(err);
+    const isNonceRace = /nonce too low|replacement transaction underpriced/i.test(message);
+    if (isNonceRace && attempt < maxAttempts) {
+      console.log(`  Nonce collision for ${address} (likely the live backend running concurrently) — retrying (${attempt}/${maxAttempts})...`);
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+      return updateOnChainRanking(address, publicClient, attempt + 1);
+    }
+    console.error(`  Leaderboard update FAILED for ${address} after ${attempt} attempt(s):`, err);
   }
 }
 

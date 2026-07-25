@@ -21,24 +21,26 @@ export function TxConfirmation({ state, txHash }: { state: TxState; txHash?: str
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
-        className="glass-card mt-4 flex items-center gap-3 px-4 py-3 text-sm"
+        className="glass-card mt-4 flex items-start gap-3 px-4 py-3 text-sm"
       >
         {state === "switching" || state === "registering" || state === "signing" || state === "relaying" ? (
           <motion.span
-            className="h-3 w-3 rounded-full border-2 border-arcade-blue border-t-transparent"
+            className="mt-1 h-3 w-3 shrink-0 rounded-full border-2 border-arcade-blue border-t-transparent"
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
           />
         ) : state === "confirmed" ? (
-          <span className="h-2.5 w-2.5 rounded-full bg-arcade-green shadow-glow" />
+          <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-arcade-green shadow-glow" />
         ) : (
-          <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+          <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-red-400" />
         )}
-        <div>
+        <div className="min-w-0">
           <p className="text-arcade-text">{copy[state]}</p>
           {txHash && (
-            <p className="mt-0.5 truncate text-xs text-arcade-muted">
-              {txHash.slice(0, 10)}...{txHash.slice(-8)} · gas sponsored by Celo Arcade Treasury
+            <p className="mt-1 truncate text-xs text-arcade-muted">
+              {txHash.slice(0, 10)}...{txHash.slice(-8)}
+              <br />
+              gas sponsored by Celo Arcade Treasury
             </p>
           )}
         </div>

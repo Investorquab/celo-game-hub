@@ -131,17 +131,28 @@ matchesRouter.post("/", async (req, res) => {
     // Best-effort: keep the on-chain Leaderboard contract's ranking current
     // too. This is deliberately a separate transaction from submitMatch
     // (not atomic with it) — if it fails, the match itself already
-    // succeeded and shouldn't be reported as an error to the player. The
-    // sync script's backfill step catches anything missed here.
-    try {
-      await walletClient.writeContract({
-        address: env.LEADERBOARD_CONTRACT as `0x${string}`,
-        abi: leaderboardAbi,
-        functionName: "updateRanking",
-        args: [playerAddress as `0x${string}`],
-      });
-    } catch (leaderboardErr) {
-      console.error("Leaderboard.updateRanking failed (match itself still succeeded):", leaderboardErr);
+    // succeeded and shouldn't be reported as an error to the player.
+    // Retries once on a nonce collision (e.g. the periodic sync script
+    // updating a ranking at the same moment) before giving up — the sync
+    // script's own backfill is still a safety net if both retries fail.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        await walletClient.writeContract({
+          address: env.LEADERBOARD_CONTRACT as `0x${string}`,
+          abi: leaderboardAbi,
+          functionName: "updateRanking",
+          args: [playerAddress as `0x${string}`],
+        });
+        break;
+      } catch (leaderboardErr) {
+        const message = leaderboardErr instanceof Error ? leaderboardErr.message : String(leaderboardErr);
+        const isNonceRace = /nonce too low|replacement transaction underpriced/i.test(message);
+        if (isNonceRace && attempt < 2) {
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        console.error("Leaderboard.updateRanking failed (match itself still succeeded):", leaderboardErr);
+      }
     }
 
     res.json({ txHash, status: "confirmed" });
