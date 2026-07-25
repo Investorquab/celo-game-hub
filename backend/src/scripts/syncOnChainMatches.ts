@@ -125,15 +125,26 @@ function upsertMatch(params: {
   return true;
 }
 
-async function updateOnChainRanking(address: string): Promise<void> {
+async function updateOnChainRanking(
+  address: string,
+  publicClient: ReturnType<typeof createPublicClient>
+): Promise<void> {
   if (!LEADERBOARD_CONTRACT) return;
   try {
-    await walletClient.writeContract({
+    const txHash = await walletClient.writeContract({
       address: LEADERBOARD_CONTRACT,
       abi: leaderboardAbi,
       functionName: "updateRanking",
       args: [address as `0x${string}`],
     });
+    // Wait for the receipt before returning — this is what actually
+    // fixes the nonce race: without it, the next call in the loop can
+    // ask the chain for a nonce before this transaction has been mined,
+    // getting the same nonce and colliding with it (exactly the
+    // "nonce too low" / "replacement transaction underpriced" errors
+    // from the first attempt at this backfill). One-time/periodic batch
+    // job, so trading a bit of speed for correctness is the right call.
+    await publicClient.waitForTransactionReceipt({ hash: txHash });
     console.log(`  Leaderboard updated for ${address}`);
   } catch (err) {
     console.error(`  Leaderboard update FAILED for ${address}:`, err);
@@ -209,12 +220,12 @@ async function main() {
     const allPlayers = db.prepare(`SELECT address FROM players`).all() as { address: string }[];
     console.log(`--backfill-leaderboard: updating on-chain ranking for all ${allPlayers.length} known player(s)...`);
     for (const p of allPlayers) {
-      await updateOnChainRanking(p.address);
+      await updateOnChainRanking(p.address, client);
     }
   } else if (touchedAddresses.size > 0) {
     console.log(`Updating on-chain Leaderboard ranking for ${touchedAddresses.size} player(s) with new matches this run...`);
     for (const address of touchedAddresses) {
-      await updateOnChainRanking(address);
+      await updateOnChainRanking(address, client);
     }
   }
 }
