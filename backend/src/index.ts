@@ -10,6 +10,14 @@ import "./services/db.js";
 
 const app = express();
 
+// This server sits behind Caddy (one reverse-proxy hop) on the VPS, which
+// adds an X-Forwarded-For header to every request. Without telling Express
+// to trust that one hop, express-rate-limit refuses to process ANY request
+// through a rate-limited route at all (see ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
+// — this was silently breaking every match submission, not a sponsorship
+// limit or gameplay issue.
+app.set("trust proxy", 1);
+
 app.use(cors());
 app.use(express.json());
 

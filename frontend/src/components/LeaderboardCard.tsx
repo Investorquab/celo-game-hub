@@ -60,8 +60,10 @@ export function LeaderboardCard({ onViewAll }: { onViewAll?: () => void }) {
               <span className="font-mono text-sm">{shorten(entry.address)}</span>
             </div>
             <div className="flex items-center gap-4 text-sm">
-              <span className="text-arcade-muted">{entry.wins}W</span>
-              <span className="pill bg-arcade-green/10 text-arcade-green">{entry.xp} XP</span>
+              <span className="w-10 text-right tabular-nums text-arcade-muted">{entry.wins}W</span>
+              <span className="pill w-20 bg-arcade-green/10 text-center text-arcade-green tabular-nums">
+                {entry.xp} XP
+              </span>
             </div>
           </motion.div>
         ))}
