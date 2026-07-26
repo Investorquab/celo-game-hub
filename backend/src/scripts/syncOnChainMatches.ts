@@ -55,6 +55,7 @@ const BACKFILL_LEADERBOARD = process.argv.includes("--backfill-leaderboard");
 const RESULT_NAMES = ["win", "loss", "draw"] as const;
 const KNOWN_GAME_IDS: Record<string, string> = {
   [keccak256(toHex("tic-tac-toe"))]: "tic-tac-toe",
+  [keccak256(toHex("rock-paper-scissors"))]: "rock-paper-scissors",
 };
 
 const matchRecordedEvent = {

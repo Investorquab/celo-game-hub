@@ -11,7 +11,7 @@ interface GameDef {
 
 const GAMES: GameDef[] = [
   { id: "tic-tac-toe", name: "Tic-Tac-Toe", status: "live", blurb: "Classic 3x3. Play vs AI, on-chain results." },
-  { id: "rps", name: "Rock Paper Scissors", status: "soon", blurb: "Fast rounds, higher stakes." },
+  { id: "rock-paper-scissors", name: "Rock Paper Scissors", status: "live", blurb: "Fast rounds, on-chain results." },
   { id: "farm-kingdom", name: "Farm Kingdom", status: "locked", blurb: "Build and grow your on-chain farm." },
   { id: "snake", name: "Snake", status: "locked", blurb: "Arcade classic, leaderboard chase." },
   { id: "memory", name: "Memory Game", status: "locked", blurb: "Match pairs, beat the clock." },

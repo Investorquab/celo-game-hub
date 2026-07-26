@@ -5,12 +5,15 @@ import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { ProfileCard } from "@/components/ProfileCard";
 import { GameGrid } from "@/components/GameGrid";
 import { TicTacToe } from "@/components/TicTacToe";
+import { RockPaperScissors } from "@/components/RockPaperScissors";
 import { NetworkGuard } from "@/components/NetworkGuard";
 import { LeaderboardCard } from "@/components/LeaderboardCard";
+import { FullLeaderboard } from "@/components/FullLeaderboard";
 import { hydrateProfileFromBackend } from "@/lib/profileSync";
 
 export default function App() {
   const [activeGame, setActiveGame] = useState<string | null>(null);
+  const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
   const { address, isConnected } = useAccount();
 
   useEffect(() => {
@@ -32,7 +35,7 @@ export default function App() {
       <NetworkGuard />
 
       <main className="mx-auto max-w-6xl px-6 pb-24">
-        {activeGame === "tic-tac-toe" ? (
+        {activeGame === "tic-tac-toe" || activeGame === "rock-paper-scissors" ? (
           <div className="mx-auto max-w-md">
             <button
               onClick={() => setActiveGame(null)}
@@ -40,7 +43,18 @@ export default function App() {
             >
               ← Back to arcade
             </button>
-            <TicTacToe />
+            {activeGame === "tic-tac-toe" ? <TicTacToe /> : <RockPaperScissors />}
+          </div>
+        ) : showFullLeaderboard ? (
+          <div className="mx-auto max-w-lg">
+            <button
+              onClick={() => setShowFullLeaderboard(false)}
+              className="mb-4 text-sm text-arcade-muted hover:text-arcade-text"
+            >
+              ← Back to arcade
+            </button>
+            <h2 className="mb-4 font-display text-xl">Full Leaderboard</h2>
+            <FullLeaderboard />
           </div>
         ) : (
           <>
@@ -71,7 +85,7 @@ export default function App() {
 
             <section>
               <h2 className="mb-4 font-display text-xl">Leaderboard</h2>
-              <LeaderboardCard />
+              <LeaderboardCard onViewAll={() => setShowFullLeaderboard(true)} />
             </section>
           </>
         )}
