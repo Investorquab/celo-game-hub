@@ -1,8 +1,10 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
+export type GameId = "tic-tac-toe" | "rock-paper-scissors";
+
 export interface SubmitMatchPayload {
   playerAddress: string;
-  gameId: "tic-tac-toe";
+  gameId: GameId;
   result: "win" | "loss" | "draw";
   boardHash: string;
   signature: string;

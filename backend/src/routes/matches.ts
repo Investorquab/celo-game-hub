@@ -33,7 +33,7 @@ matchesRouter.get("/nonce", (req, res) => {
 
 const submitSchema = z.object({
   playerAddress: z.string().startsWith("0x"),
-  gameId: z.enum(["tic-tac-toe"]),
+  gameId: z.enum(["tic-tac-toe", "rock-paper-scissors"]),
   result: z.enum(["win", "loss", "draw"]),
   boardHash: z.string(),
   signature: z.string().startsWith("0x"),
