@@ -17,6 +17,7 @@ import {
   TreasuryLowBalanceError,
   walletClient,
 } from "../relayer/relayerService.js";
+import { reserveNonce, resyncNonce } from "../relayer/nonceManager.js";
 import { xpForResult, levelForXp } from "../lib/xp.js";
 
 export const matchesRouter = Router();
@@ -92,16 +93,24 @@ matchesRouter.post("/", async (req, res) => {
        VALUES (?, ?, ?, ?, 'queued', ?)`
     ).run(matchId, playerAddress.toLowerCase(), gameId, result, Date.now());
 
-    const txHash = await walletClient.writeContract({
-      address: env.GAME_RESULTS_CONTRACT as `0x${string}`,
-      abi: gameResultsAbi,
-      functionName: "submitMatch",
-      args: [
-        playerAddress as `0x${string}`,
-        keccak256(toHex(gameId)),
-        resultToEnum[result],
-      ],
-    });
+    let txHash: `0x${string}`;
+    try {
+      const nonce = await reserveNonce();
+      txHash = await walletClient.writeContract({
+        address: env.GAME_RESULTS_CONTRACT as `0x${string}`,
+        abi: gameResultsAbi,
+        functionName: "submitMatch",
+        args: [
+          playerAddress as `0x${string}`,
+          keccak256(toHex(gameId)),
+          resultToEnum[result],
+        ],
+        nonce,
+      });
+    } catch (submitErr) {
+      resyncNonce();
+      throw submitErr;
+    }
 
     db.prepare(`UPDATE matches SET tx_hash = ?, status = 'confirmed' WHERE id = ?`).run(
       txHash,
@@ -129,22 +138,31 @@ matchesRouter.post("/", async (req, res) => {
     ).run(newXp, levelForXp(newXp), winInc, lossInc, drawInc, playerAddress.toLowerCase());
 
     // Best-effort: keep the on-chain Leaderboard contract's ranking current
-    // too. This is deliberately a separate transaction from submitMatch
-    // (not atomic with it) — if it fails, the match itself already
-    // succeeded and shouldn't be reported as an error to the player.
-    // Retries once on a nonce collision (e.g. the periodic sync script
-    // updating a ranking at the same moment) before giving up — the sync
-    // script's own backfill is still a safety net if both retries fail.
+    // too. Deliberately a separate transaction from submitMatch (not atomic
+    // with it) — if it fails, the match itself already succeeded and
+    // shouldn't be reported as an error to the player.
+    //
+    // This explicitly reserves its own nonce (one higher than submitMatch's,
+    // via the shared nonce manager) rather than letting viem auto-fetch one —
+    // that auto-fetch was the actual bug: two sequential writeContract calls
+    // in this same request, from the same wallet, without waiting for the
+    // first to mine, both asked the chain for "next nonce" and got the same
+    // answer every single time. The one retry left here is a safety net
+    // against a DIFFERENT process (the periodic sync script) using this
+    // wallet at the same moment — this manager can't see across processes.
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
+        const nonce = await reserveNonce();
         await walletClient.writeContract({
           address: env.LEADERBOARD_CONTRACT as `0x${string}`,
           abi: leaderboardAbi,
           functionName: "updateRanking",
           args: [playerAddress as `0x${string}`],
+          nonce,
         });
         break;
       } catch (leaderboardErr) {
+        resyncNonce();
         const message = leaderboardErr instanceof Error ? leaderboardErr.message : String(leaderboardErr);
         const isNonceRace = /nonce too low|replacement transaction underpriced/i.test(message);
         if (isNonceRace && attempt < 2) {

@@ -80,13 +80,22 @@ you treat it as a finished product:
   on a schedule (cron, or a simple pm2 sleep-loop process) to keep the
   live leaderboard current with any on-chain activity from outside the
   normal API.
-- ⚠️ Not yet done: the on-chain `Leaderboard` contract itself is unused —
-  all live leaderboard/profile data comes from the backend's SQLite
-  cache (kept in sync with the chain by the script above), not derived
-  on-chain via `Leaderboard.updateRanking`. Also still missing: a
-  JWT/session layer after sign-in (every state-changing call re-proves
-  identity via its own signed message, which is safe but chattier than a
-  session would be).
+- ✅ **On-chain Leaderboard, actually active** (`Leaderboard.updateRanking`,
+  called from `matches.ts` after every match and from the sync script for
+  anything submitted outside the normal API): fixed a real bug where this
+  failed **100% of the time** — the backend was sending two sequential
+  transactions from the same wallet per request (`submitMatch`, then
+  `updateRanking`) without waiting for the first to mine, so both asked
+  the chain for the same nonce. Fixed with a proper nonce manager
+  (`backend/src/relayer/nonceManager.ts`) that serializes nonce allocation
+  across the whole process via a promise chain — same class of bug
+  already fixed once in the Python simulator and the sync script, this
+  was the one remaining place it was hiding. Verify it's working by
+  checking recent transactions directly:
+  https://celoscan.io/address/0x8d064accAfa33197c2c3611480E3F87d674b4dc8
+- ⚠️ Not yet done: a JWT/session layer after sign-in (every state-changing
+  call re-proves identity via its own signed message, which is safe but
+  chattier than a session would be).
 - ⚠️ Contracts are functional and tested but **not externally audited**.
   Treat them as a solid starting point, not a guarantee of security for
   high-value usage.
