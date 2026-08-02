@@ -24,6 +24,7 @@ export async function fetchMatchNonce(playerAddress: string): Promise<string> {
 
 export interface PlayerProfileResponse {
   address: string;
+  username: string | null;
   xp: number;
   level: number;
   wins: number;
@@ -35,6 +36,37 @@ export interface PlayerProfileResponse {
 export async function fetchPlayerProfile(address: string): Promise<PlayerProfileResponse> {
   const res = await fetch(`${API_BASE}/api/players/${address}`);
   if (!res.ok) throw new Error("Failed to fetch player profile");
+  return res.json();
+}
+
+export async function fetchUsernameNonce(address: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/username/nonce?address=${address}`);
+  if (!res.ok) throw new Error("Failed to fetch username nonce");
+  const data = await res.json();
+  return data.nonce;
+}
+
+export async function setUsername(params: {
+  address: string;
+  username: string;
+  signature: string;
+}): Promise<{ ok: true; address: string; username: string }> {
+  const res = await fetch(`${API_BASE}/api/username`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Failed to set username: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function searchUsername(username: string): Promise<PlayerProfileResponse | null> {
+  const res = await fetch(`${API_BASE}/api/username/${encodeURIComponent(username)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Failed to search username");
   return res.json();
 }
 
@@ -62,6 +94,7 @@ export async function submitMatchResult(
 
 export interface LeaderboardEntry {
   address: string;
+  username: string | null;
   xp: number;
   level: number;
   wins: number;

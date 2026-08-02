@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 export interface PlayerProfile {
   address: string;
+  username: string | null;
   xp: number;
   level: number;
   wins: number;

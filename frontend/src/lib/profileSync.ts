@@ -12,6 +12,7 @@ export async function hydrateProfileFromBackend(address: string) {
     const data = await fetchPlayerProfile(address);
     usePlayerStore.getState().setProfile({
       address: data.address,
+      username: data.username,
       xp: data.xp,
       level: data.level,
       wins: data.wins,

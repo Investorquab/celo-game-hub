@@ -43,3 +43,20 @@ db.exec(`
   -- rows from the live API) are still allowed to repeat.
   CREATE UNIQUE INDEX IF NOT EXISTS idx_matches_tx_hash ON matches(tx_hash) WHERE tx_hash IS NOT NULL;
 `);
+
+// Migration: add `username` to an existing players table. Wrapped in
+// try/catch because SQLite has no "ADD COLUMN IF NOT EXISTS" — this
+// throws harmlessly on every startup after the first, once the column
+// already exists.
+try {
+  db.exec(`ALTER TABLE players ADD COLUMN username TEXT`);
+} catch {
+  // already exists — fine
+}
+
+// Case-insensitive uniqueness so "Alice" and "alice" can't both be taken.
+db.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_players_username
+  ON players (username COLLATE NOCASE)
+  WHERE username IS NOT NULL;
+`);

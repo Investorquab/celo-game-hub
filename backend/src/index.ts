@@ -6,6 +6,7 @@ import { authRouter } from "./routes/auth.js";
 import { matchesRouter } from "./routes/matches.js";
 import { leaderboardRouter } from "./routes/leaderboard.js";
 import { playersRouter } from "./routes/players.js";
+import { usernameRouter } from "./routes/username.js";
 import "./services/db.js";
 
 const app = express();
@@ -29,6 +30,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/matches", relayerLimiter, matchesRouter);
 app.use("/api/leaderboard", leaderboardRouter);
 app.use("/api/players", playersRouter);
+app.use("/api/username", usernameRouter);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 

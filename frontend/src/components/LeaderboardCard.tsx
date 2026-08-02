@@ -57,7 +57,9 @@ export function LeaderboardCard({ onViewAll }: { onViewAll?: () => void }) {
           >
             <div className="flex items-center gap-3">
               <span className="w-5 text-sm font-medium text-arcade-muted">{i + 1}</span>
-              <span className="font-mono text-sm">{shorten(entry.address)}</span>
+              <span className="text-sm">
+                {entry.username ?? <span className="font-mono">{shorten(entry.address)}</span>}
+              </span>
             </div>
             <div className="flex items-center gap-4 text-sm">
               <span className="w-10 text-right tabular-nums text-arcade-muted">{entry.wins}W</span>
