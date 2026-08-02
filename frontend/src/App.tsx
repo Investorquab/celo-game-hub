@@ -9,11 +9,15 @@ import { RockPaperScissors } from "@/components/RockPaperScissors";
 import { NetworkGuard } from "@/components/NetworkGuard";
 import { LeaderboardCard } from "@/components/LeaderboardCard";
 import { FullLeaderboard } from "@/components/FullLeaderboard";
+import { LoginPage } from "@/components/LoginPage";
+import { ProfilePage } from "@/components/ProfilePage";
 import { hydrateProfileFromBackend } from "@/lib/profileSync";
+
+type View = "home" | "leaderboard" | "profile";
 
 export default function App() {
   const [activeGame, setActiveGame] = useState<string | null>(null);
-  const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
+  const [view, setView] = useState<View>("home");
   const { address, isConnected } = useAccount();
 
   useEffect(() => {
@@ -22,14 +26,38 @@ export default function App() {
     }
   }, [isConnected, address]);
 
+  // Not connected yet — show the dedicated login screen instead of the
+  // arcade. Nothing here changes what an already-connected/returning
+  // player sees; this only ever appears before a wallet is connected.
+  if (!isConnected) {
+    return <LoginPage />;
+  }
+
   return (
     <div className="min-h-screen text-arcade-text">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <div className="flex items-center gap-2">
+        <button
+          onClick={() => {
+            setActiveGame(null);
+            setView("home");
+          }}
+          className="flex items-center gap-2"
+        >
           <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-arcade-green to-arcade-blue shadow-glow" />
           <span className="font-display text-lg font-semibold">Celo Arcade</span>
+        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setActiveGame(null);
+              setView("profile");
+            }}
+            className="text-sm text-arcade-muted transition hover:text-arcade-text"
+          >
+            Profile
+          </button>
+          <WalletConnectButton />
         </div>
-        <WalletConnectButton />
       </header>
 
       <NetworkGuard />
@@ -45,10 +73,20 @@ export default function App() {
             </button>
             {activeGame === "tic-tac-toe" ? <TicTacToe /> : <RockPaperScissors />}
           </div>
-        ) : showFullLeaderboard ? (
+        ) : view === "profile" ? (
+          <div>
+            <button
+              onClick={() => setView("home")}
+              className="mb-4 text-sm text-arcade-muted hover:text-arcade-text"
+            >
+              ← Back to arcade
+            </button>
+            <ProfilePage />
+          </div>
+        ) : view === "leaderboard" ? (
           <div className="mx-auto max-w-lg">
             <button
-              onClick={() => setShowFullLeaderboard(false)}
+              onClick={() => setView("home")}
               className="mb-4 text-sm text-arcade-muted hover:text-arcade-text"
             >
               ← Back to arcade
@@ -85,7 +123,7 @@ export default function App() {
 
             <section>
               <h2 className="mb-4 font-display text-xl">Leaderboard</h2>
-              <LeaderboardCard onViewAll={() => setShowFullLeaderboard(true)} />
+              <LeaderboardCard onViewAll={() => setView("leaderboard")} />
             </section>
           </>
         )}

@@ -93,6 +93,18 @@ you treat it as a finished product:
   was the one remaining place it was hiding. Verify it's working by
   checking recent transactions directly:
   https://celoscan.io/address/0x8d064accAfa33197c2c3611480E3F87d674b4dc8
+- ✅ **Login page, profiles, usernames**: disconnected visitors now see a
+  dedicated `LoginPage` instead of the arcade (nothing changes for
+  already-connected returning players). A new `ProfilePage`
+  (`frontend/src/components/ProfilePage.tsx`) shows full stats and lets a
+  player set/change a username, signature-verified the same way match
+  results are (`backend/src/routes/username.ts`,
+  `backend/src/lib/usernameMessage.ts`) — 3-20 chars, letters/numbers/
+  underscore, case-insensitively unique (`idx_players_username` in
+  `db.ts`). Usernames show up in place of raw addresses on the profile
+  card and both leaderboard views once set. This is the foundation the
+  planned multiplayer/challenge system will build on — you need identity
+  before you can search for or challenge a specific player.
 - ⚠️ Not yet done: a JWT/session layer after sign-in (every state-changing
   call re-proves identity via its own signed message, which is safe but
   chattier than a session would be).

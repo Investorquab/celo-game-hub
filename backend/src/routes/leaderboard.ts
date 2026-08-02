@@ -6,7 +6,7 @@ export const leaderboardRouter = Router();
 leaderboardRouter.get("/", (_req, res) => {
   const top = db
     .prepare(
-      `SELECT address, xp, level, wins, losses, draws
+      `SELECT address, username, xp, level, wins, losses, draws
        FROM players ORDER BY xp DESC LIMIT 100`
     )
     .all();

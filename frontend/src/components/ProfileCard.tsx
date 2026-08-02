@@ -27,7 +27,7 @@ export function ProfileCard() {
             Level {profile.level}
           </p>
           <p className="font-display text-lg text-arcade-text">
-            {profile.address.slice(0, 6)}...{profile.address.slice(-4)}
+            {profile.username ?? `${profile.address.slice(0, 6)}...${profile.address.slice(-4)}`}
           </p>
         </div>
         <div className="pill bg-arcade-green/10 text-arcade-green">
